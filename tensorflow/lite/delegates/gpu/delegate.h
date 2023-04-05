@@ -17,6 +17,11 @@ limitations under the License.
 #define TENSORFLOW_LITE_DELEGATES_GPU_DELEGATE_H_
 
 #include <stdint.h>
+#ifdef GPU_INPUT_BINDING
+#include <vector>
+#include <memory>
+#include <GLES3/gl32.h>
+#endif
 
 #include "tensorflow/lite/c/common.h"
 
@@ -68,6 +73,11 @@ enum TfLiteGpuExperimentalFlags {
   TFLITE_GPU_EXPERIMENTAL_FLAGS_ENABLE_SERIALIZATION = 1 << 3,
 };
 
+enum TfLiteGpuBinding {
+  TFLITE_GPU_BINDING_OFF = 0,
+  TFLITE_GPU_BINDING_ON = 1 << 0,
+};
+
 // IMPORTANT: Always use TfLiteGpuDelegateOptionsV2Default() method to create
 // new instance of TfLiteGpuDelegateOptionsV2, otherwise every new added option
 // may break inference.
@@ -103,6 +113,9 @@ typedef struct {
   int32_t inference_priority1;
   int32_t inference_priority2;
   int32_t inference_priority3;
+
+  int32_t input_binding;
+  int32_t output_binding;
 
   // Bitmask flags. See the comments in TfLiteGpuExperimentalFlags.
   int64_t experimental_flags;
@@ -156,6 +169,11 @@ TFL_CAPI_EXPORT TfLiteDelegate* TfLiteGpuDelegateV2Create(
 // Destroys a delegate created with `TfLiteGpuDelegateV2Create` call.
 TFL_CAPI_EXPORT void TfLiteGpuDelegateV2Delete(TfLiteDelegate* delegate);
 
+#ifdef GPU_INPUT_BINDING
+// Bind the tensor at index to GPU memory
+TFL_CAPI_EXPORT TfLiteStatus TfLiteGpuDelegateBindBufferToTensor(
+    TfLiteDelegate* delegate, std::shared_ptr<std::vector<GLuint>>& buffers, int tensor_index);
+#endif
 #ifdef __cplusplus
 }
 #endif  // __cplusplus
