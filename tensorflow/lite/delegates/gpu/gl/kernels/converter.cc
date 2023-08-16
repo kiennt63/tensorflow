@@ -142,6 +142,8 @@ class FromTensorConverter : public OpenGlConverterImpl {
 
   absl::Status Convert(const TensorObject& input_obj,
                        const TensorObject& output_obj) override {
+                        printf("FromTensorConverter::Convert() - ");
+    printf("Two type: %d - %d\n", input_obj.index(), output_obj.index());
     auto output = std::get_if<OpenGlBuffer>(&output_obj);
     if (!output || !output->id) {
       return absl::InvalidArgumentError("Missing output in converter");
@@ -237,6 +239,8 @@ class ToTensorConverter : public OpenGlConverterImpl {
 
   absl::Status Convert(const TensorObject& input_obj,
                        const TensorObject& output_obj) override {
+                        printf("ToTensorConverter::Convert() - ");
+    printf("Two type: %d - %d\n", input_obj.index(), output_obj.index());
     auto output = std::get_if<OpenGlBuffer>(&output_obj);
     if (!output || !output->id) {
       return absl::InvalidArgumentError("Missing output in converter");
@@ -286,6 +290,8 @@ class TrivialCopier : public TensorObjectConverter {
 
   absl::Status Convert(const TensorObject& input_obj,
                        const TensorObject& output_obj) override {
+                        printf("TrivialCopier::Convert\n");
+    printf("Two type: %d - %d\n", input_obj.index(), output_obj.index());
     auto ssbo_input = std::get_if<OpenGlBuffer>(&input_obj);
     auto ssbo_output = std::get_if<OpenGlBuffer>(&output_obj);
     if (ssbo_input && ssbo_output) {
@@ -320,6 +326,8 @@ class CpuCopier : public TensorObjectConverter {
 
   absl::Status Convert(const TensorObject& input_obj,
                        const TensorObject& output_obj) override {
+                        printf("CpuCopier::Convert\n");
+    printf("Two type: %d - %d\n", input_obj.index(), output_obj.index());
     auto cpu_input = std::get_if<CpuMemory>(&input_obj);
     auto cpu_output = std::get_if<CpuMemory>(&output_obj);
     if (cpu_input) {

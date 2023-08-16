@@ -217,11 +217,13 @@ class DelegateKernel {
       if (input_binding & TFLITE_GPU_BINDING_ON)
       {
         input_buffers_ = std::move(delegate_->input_buffers_);
+        printf("--SetInputObjectDef with GpuObjectDef\n");
         RETURN_IF_ERROR(
             builder->SetInputObjectDef(object_index, GetGpuObjectDef(tensor_index)));
       }
       else
       {
+        printf("--SetInputObjectDef with ObjectDef\n");
         RETURN_IF_ERROR(
             builder->SetInputObjectDef(object_index, GetObjectDef(tensor_index)));
       }
@@ -313,11 +315,13 @@ class DelegateKernel {
       const int input_binding = delegate_->options().input_binding;
       if (input_binding & TFLITE_GPU_BINDING_ON)
       {
+        printf("SetInputObject with GpuInputTensorObject\n");
         RETURN_IF_ERROR(runner_->SetInputObject(
             i, GetGpuInputTensorObject(input_indices_[i])));
       }
       else
       {
+        printf("SetInputObject with InputTensorObject\n");
         RETURN_IF_ERROR(runner_->SetInputObject(
             i, GetTensorObject(input_indices_[i], context)));
       }
