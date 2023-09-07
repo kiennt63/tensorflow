@@ -314,7 +314,7 @@ class DelegateKernel {
       if (input_binding & TFLITE_GPU_BINDING_ON)
       {
         RETURN_IF_ERROR(runner_->SetInputObject(
-            i, GetGpuInputTensorObject(input_indices_[i])));
+            i, GetGpuInputTensorObject(i)));
       }
       else
       {
@@ -333,7 +333,7 @@ class DelegateKernel {
       if (output_binding & TFLITE_GPU_BINDING_ON)
       {
         RETURN_IF_ERROR(runner_->SetOutputObject(
-            i, GetGpuOutputTensorObject(output_indices_[i])));
+            i, GetGpuOutputTensorObject(i)));
       }
       else
       {
@@ -726,12 +726,25 @@ void TfLiteGpuDelegateV2Delete(TfLiteDelegate* delegate) {
 
 #ifdef GPU_INPUT_BINDING
 // multiple buffers in case of multiple tensors at same index (not sure about this though)
-TFL_CAPI_EXPORT TfLiteStatus TfLiteGpuDelegateBindBufferToTensor(
+TFL_CAPI_EXPORT TfLiteStatus TfLiteGpuDelegateBindBufferToInputTensor(
     TfLiteDelegate* delegate, tflite::gpu::SharedBuffersPtr& buffers, int tensor_index)
 {
   auto* gpu_delegate = tflite::gpu::GetDelegate(delegate);
   return gpu_delegate &&
               gpu_delegate->BindInputTensors(buffers).ok()
+              ? kTfLiteOk
+              : kTfLiteError; 
+}
+#endif
+
+#ifdef GPU_OUTPUT_BINDING
+// multiple buffers in case of multiple tensors at same index (not sure about this though)
+TFL_CAPI_EXPORT TfLiteStatus TfLiteGpuDelegateBindBufferToOutputTensor(
+    TfLiteDelegate* delegate, tflite::gpu::SharedBuffersPtr& buffers, int tensor_index)
+{
+  auto* gpu_delegate = tflite::gpu::GetDelegate(delegate);
+  return gpu_delegate &&
+              gpu_delegate->BindOutputTensors(buffers).ok()
               ? kTfLiteOk
               : kTfLiteError; 
 }
