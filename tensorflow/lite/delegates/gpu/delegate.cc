@@ -21,7 +21,6 @@ limitations under the License.
 #include <string>
 #include <thread>  // NOLINT(build/c++11)
 #include <vector>
-#include <android/log.h>
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
