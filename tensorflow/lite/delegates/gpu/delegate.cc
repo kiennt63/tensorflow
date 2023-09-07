@@ -21,6 +21,7 @@ limitations under the License.
 #include <string>
 #include <thread>  // NOLINT(build/c++11)
 #include <vector>
+#include <android/log.h>
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
@@ -217,13 +218,11 @@ class DelegateKernel {
       if (input_binding & TFLITE_GPU_BINDING_ON)
       {
         input_buffers_ = std::move(delegate_->input_buffers_);
-        printf("--SetInputObjectDef with GpuObjectDef\n");
         RETURN_IF_ERROR(
             builder->SetInputObjectDef(object_index, GetGpuObjectDef(tensor_index)));
       }
       else
       {
-        printf("--SetInputObjectDef with ObjectDef\n");
         RETURN_IF_ERROR(
             builder->SetInputObjectDef(object_index, GetObjectDef(tensor_index)));
       }
@@ -315,13 +314,11 @@ class DelegateKernel {
       const int input_binding = delegate_->options().input_binding;
       if (input_binding & TFLITE_GPU_BINDING_ON)
       {
-        printf("SetInputObject with GpuInputTensorObject\n");
         RETURN_IF_ERROR(runner_->SetInputObject(
-            i, GetGpuInputTensorObject(input_indices_[i])));
+            i, GetGpuInputTensorObject(i)));
       }
       else
       {
-        printf("SetInputObject with InputTensorObject\n");
         RETURN_IF_ERROR(runner_->SetInputObject(
             i, GetTensorObject(input_indices_[i], context)));
       }
@@ -337,7 +334,7 @@ class DelegateKernel {
       if (output_binding & TFLITE_GPU_BINDING_ON)
       {
         RETURN_IF_ERROR(runner_->SetOutputObject(
-            i, GetGpuOutputTensorObject(output_indices_[i])));
+            i, GetGpuOutputTensorObject(i)));
       }
       else
       {
@@ -730,12 +727,25 @@ void TfLiteGpuDelegateV2Delete(TfLiteDelegate* delegate) {
 
 #ifdef GPU_INPUT_BINDING
 // multiple buffers in case of multiple tensors at same index (not sure about this though)
-TFL_CAPI_EXPORT TfLiteStatus TfLiteGpuDelegateBindBufferToTensor(
+TFL_CAPI_EXPORT TfLiteStatus TfLiteGpuDelegateBindBufferToInputTensor(
     TfLiteDelegate* delegate, tflite::gpu::SharedBuffersPtr& buffers, int tensor_index)
 {
   auto* gpu_delegate = tflite::gpu::GetDelegate(delegate);
   return gpu_delegate &&
               gpu_delegate->BindInputTensors(buffers).ok()
+              ? kTfLiteOk
+              : kTfLiteError; 
+}
+#endif
+
+#ifdef GPU_OUTPUT_BINDING
+// multiple buffers in case of multiple tensors at same index (not sure about this though)
+TFL_CAPI_EXPORT TfLiteStatus TfLiteGpuDelegateBindBufferToOutputTensor(
+    TfLiteDelegate* delegate, tflite::gpu::SharedBuffersPtr& buffers, int tensor_index)
+{
+  auto* gpu_delegate = tflite::gpu::GetDelegate(delegate);
+  return gpu_delegate &&
+              gpu_delegate->BindOutputTensors(buffers).ok()
               ? kTfLiteOk
               : kTfLiteError; 
 }

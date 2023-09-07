@@ -83,9 +83,7 @@ class DefaultTensorTie : public TensorTie {
  public:
   DefaultTensorTie(const TensorTieDef& def, TensorObject internal_obj,
                    ObjectManager* objects)
-      : TensorTie(def), objects_(objects), internal_obj_(internal_obj) {
-        std::cout << "Creating DefaultTensorTie\n";
-      }
+      : TensorTie(def), objects_(objects), internal_obj_(internal_obj) {}
 
   static bool IsSupported(
       const TensorTieDef& def,
@@ -121,7 +119,6 @@ class DefaultTensorTie : public TensorTie {
   }
 
   absl::Status CopyToExternalObject() final {
-    printf("DefaultTensorTie::CopyToExternalObject\n");
     if (!converter_to_) {
       return absl::OkStatus();
     }
@@ -129,9 +126,7 @@ class DefaultTensorTie : public TensorTie {
   }
 
   absl::Status CopyFromExternalObject() final {
-    printf("DefaultTensorTie::CopyFromExternalObject\n");
     if (!converter_from_) {
-      printf("no converter_from_\n");
       return absl::OkStatus();
     }
     return converter_from_->Convert(GetExternalObject(), internal_obj_);
@@ -289,9 +284,7 @@ class DefaultTensorTie : public TensorTie {
 //   - CPU BHWC -> GL buffer BHWC -> GL texture DHWC4.
 class TwoStepTensorTie : public TensorTie {
  public:
-  explicit TwoStepTensorTie(const TensorTieDef& def) : TensorTie(def) {
-    std::cout << "Creating TwoStepTensorTie\n";
-  }
+  explicit TwoStepTensorTie(const TensorTieDef& def) : TensorTie(def) {}
 
   static bool IsSupported(
       const TensorTieDef& def,
@@ -312,13 +305,11 @@ class TwoStepTensorTie : public TensorTie {
   }
 
   absl::Status CopyToExternalObject() final {
-    printf("TwoStepTensorTie::CopyToExternalObject\n");
     RETURN_IF_ERROR(inner_tie_->CopyToExternalObject());
     return outer_tie_->CopyToExternalObject();
   }
 
   absl::Status CopyFromExternalObject() final {
-    printf("TwoStepTensorTie::CopyFromExternalObject\n");
     RETURN_IF_ERROR(outer_tie_->CopyFromExternalObject());
     return inner_tie_->CopyFromExternalObject();
   }
@@ -459,13 +450,10 @@ class InferenceRunnerImpl : public InferenceRunner {
 
   absl::Status Run() override {
     for (auto& obj : input_tensor_ties_) {
-      printf("input_tensor_tie->CopyFromExternalObject()\n");
       RETURN_IF_ERROR(obj->CopyFromExternalObject());
     }
-    printf("runtime_->Execute()\n");
     RETURN_IF_ERROR(runtime_->Execute());
     for (auto& obj : output_tensor_ties_) {
-      printf("output_tensor_tie->CopyFromExternalObject()\n");
       RETURN_IF_ERROR(obj->CopyToExternalObject());
     }
     RETURN_IF_ERROR(runtime_->command_queue()->Flush());
@@ -542,7 +530,6 @@ class InferenceBuilderImpl : public InferenceBuilder {
     if (index < 0 || index >= inputs_.size()) {
       return absl::OutOfRangeError("Index is out of range");
     }
-    printf("inputs_.size() = %d\n", inputs_.size());
     auto def = inputs_[index];
     def.external_def.object_def = new_def;
     if (!tie_factory_.IsSupported(def)) {

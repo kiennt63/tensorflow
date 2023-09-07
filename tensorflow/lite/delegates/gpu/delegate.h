@@ -169,11 +169,13 @@ TFL_CAPI_EXPORT TfLiteDelegate* TfLiteGpuDelegateV2Create(
 // Destroys a delegate created with `TfLiteGpuDelegateV2Create` call.
 TFL_CAPI_EXPORT void TfLiteGpuDelegateV2Delete(TfLiteDelegate* delegate);
 
-#ifdef GPU_INPUT_BINDING
 // Bind the tensor at index to GPU memory
-TFL_CAPI_EXPORT TfLiteStatus TfLiteGpuDelegateBindBufferToTensor(
+TFL_CAPI_EXPORT TfLiteStatus TfLiteGpuDelegateBindBufferToInputTensor(
     TfLiteDelegate* delegate, std::shared_ptr<std::vector<GLuint>>& buffers, int tensor_index);
-#endif
+
+// Bind the tensor at index to GPU memory
+TFL_CAPI_EXPORT TfLiteStatus TfLiteGpuDelegateBindBufferToOutputTensor(
+    TfLiteDelegate* delegate, std::shared_ptr<std::vector<GLuint>>& buffers, int tensor_index);
 #ifdef __cplusplus
 }
 #endif  // __cplusplus
