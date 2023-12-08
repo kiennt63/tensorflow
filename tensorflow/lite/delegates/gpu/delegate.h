@@ -17,10 +17,11 @@ limitations under the License.
 #define TENSORFLOW_LITE_DELEGATES_GPU_DELEGATE_H_
 
 #include <stdint.h>
-#ifdef GPU_INPUT_BINDING
+#if defined(GL_IO_BINDING) || defined(CL_IO_BINDING)
 #include <vector>
 #include <memory>
 #include <GLES3/gl32.h>
+#include <CL/cl.h>
 #endif
 
 #include "tensorflow/lite/c/common.h"
@@ -169,17 +170,23 @@ TFL_CAPI_EXPORT TfLiteDelegate* TfLiteGpuDelegateV2Create(
 // Destroys a delegate created with `TfLiteGpuDelegateV2Create` call.
 TFL_CAPI_EXPORT void TfLiteGpuDelegateV2Delete(TfLiteDelegate* delegate);
 
-#ifdef GPU_INPUT_BINDING
-// Bind the tensor at index to GPU memory
+#if defined(CL_IO_BINDING)
+// Bind the tensor at index to OpenCL memory
+TFL_CAPI_EXPORT TfLiteStatus TfLiteGpuDelegateBindBufferToInputTensor(
+    TfLiteDelegate* delegate, std::shared_ptr<std::vector<cl_mem>>& buffers, int tensor_index);
+
+// Bind the tensor at index to OpenCL memory
+TFL_CAPI_EXPORT TfLiteStatus TfLiteGpuDelegateBindBufferToOutputTensor(
+    TfLiteDelegate* delegate, std::shared_ptr<std::vector<cl_mem>>& buffers, int tensor_index);
+#elif defined(GL_IO_BINDING)
+// Bind the tensor at index to OpenGL memory
 TFL_CAPI_EXPORT TfLiteStatus TfLiteGpuDelegateBindBufferToInputTensor(
     TfLiteDelegate* delegate, std::shared_ptr<std::vector<GLuint>>& buffers, int tensor_index);
-#endif // GPU_INPUT_BINDING
 
-#ifdef GPU_OUTPUT_BINDING
-// Bind the tensor at index to GPU memory
+// Bind the tensor at index to OpenGL memory
 TFL_CAPI_EXPORT TfLiteStatus TfLiteGpuDelegateBindBufferToOutputTensor(
     TfLiteDelegate* delegate, std::shared_ptr<std::vector<GLuint>>& buffers, int tensor_index);
-#endif // GPU_OUTPUT_BINDING
+#endif
 #ifdef __cplusplus
 }
 #endif  // __cplusplus

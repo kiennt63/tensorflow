@@ -54,8 +54,10 @@ namespace {
 using delegates::Serialization;
 using delegates::SerializationParams;
 
-#ifdef GL_IO_BINDING
-using SharedBuffersPtr = std::shared_ptr<std::vector<GLuint>>;
+#if defined(GL_IO_BINDING)
+using IoBuffersPtr = std::shared_ptr<std::vector<GLuint>>;
+#elif defined(CL_IO_BINDING)
+using IoBuffersPtr = std::shared_ptr<std::vector<cl_mem>>;
 #endif
 
 constexpr char kSerializedDataPrefix[] = "gpuv2_data_";
@@ -124,15 +126,13 @@ class Delegate {
   }
   int num_delegate_kernels() const { return num_delegate_kernels_; }
 
-#ifdef GL_IO_BINDING
-  absl::Status BindInputTensors(SharedBuffersPtr buffers)
-  {
+#if (defined GL_IO_BINDING || defined CL_IO_BINDING)
+  absl::Status BindInputTensors(IoBuffersPtr buffers) {
     input_buffers_ = buffers;
     return absl::OkStatus();
   }
 
-  absl::Status BindOutputTensors(SharedBuffersPtr buffers)
-  {
+  absl::Status BindOutputTensors(IoBuffersPtr buffers) {
     output_buffers_ = buffers;
     return absl::OkStatus();
   }
@@ -145,9 +145,9 @@ class Delegate {
 
   std::unique_ptr<Serialization> serialization_;
 
-#ifdef GL_IO_BINDING
-  SharedBuffersPtr input_buffers_;
-  SharedBuffersPtr output_buffers_;
+#if (defined(GL_IO_BINDING) || defined(CL_IO_BINDING))
+  IoBuffersPtr input_buffers_;
+  IoBuffersPtr output_buffers_;
 #endif
 
   friend class DelegateKernel;
@@ -208,23 +208,19 @@ class DelegateKernel {
     for (uint32_t tensor_index : input_refs) {
       const int64_t object_index = input_indices_.size();
       input_indices_.push_back(tensor_index);
-#ifndef GL_IO_BINDING
+#if (defined(GL_IO_BINDING) || defined(CL_IO_BINDING))
+      const int input_binding = delegate_->options().input_binding;
+      if (input_binding & TFLITE_GPU_BINDING_ON) {
+        input_buffers_ = std::move(delegate_->input_buffers_);
+        RETURN_IF_ERROR(builder->SetInputObjectDef(
+            object_index, GetGpuObjectDef(tensor_index)));
+      } else {
+        RETURN_IF_ERROR(builder->SetInputObjectDef(object_index,
+                                                   GetObjectDef(tensor_index)));
+      }
+#else
       RETURN_IF_ERROR(
           builder->SetInputObjectDef(object_index, GetObjectDef(tensor_index)));
-#else
-      // TODO: change this to use the GPU memory type (based on requirement)
-      const int input_binding = delegate_->options().input_binding;
-      if (input_binding & TFLITE_GPU_BINDING_ON)
-      {
-        input_buffers_ = std::move(delegate_->input_buffers_);
-        RETURN_IF_ERROR(
-            builder->SetInputObjectDef(object_index, GetGpuObjectDef(tensor_index)));
-      }
-      else
-      {
-        RETURN_IF_ERROR(
-            builder->SetInputObjectDef(object_index, GetObjectDef(tensor_index)));
-      }
 #endif
     }
 
@@ -232,22 +228,19 @@ class DelegateKernel {
     for (uint32_t tensor_index : output_refs) {
       const int64_t object_index = output_indices_.size();
       output_indices_.push_back(tensor_index);
-#ifndef GL_IO_BINDING
+#if (defined(GL_IO_BINDING) || defined(CL_IO_BINDING))
+      const int output_binding = delegate_->options().output_binding;
+      if (output_binding & TFLITE_GPU_BINDING_ON) {
+        output_buffers_ = std::move(delegate_->output_buffers_);
+        RETURN_IF_ERROR(builder->SetOutputObjectDef(
+            object_index, GetGpuObjectDef(tensor_index)));
+      } else {
+        RETURN_IF_ERROR(builder->SetOutputObjectDef(
+            object_index, GetObjectDef(tensor_index)));
+      }
+#else
       RETURN_IF_ERROR(builder->SetOutputObjectDef(object_index,
                                                   GetObjectDef(tensor_index)));
-#else
-      const int output_binding = delegate_->options().output_binding;
-      if (output_binding & TFLITE_GPU_BINDING_ON)
-      {
-        output_buffers_ = std::move(delegate_->output_buffers_);
-        RETURN_IF_ERROR(builder->SetOutputObjectDef(object_index,
-                                                    GetGpuObjectDef(tensor_index)));
-      }
-      else
-      {
-        RETURN_IF_ERROR(builder->SetOutputObjectDef(object_index,
-                                                    GetObjectDef(tensor_index)));
-      }
 #endif
     }
 
@@ -306,46 +299,48 @@ class DelegateKernel {
  private:
   absl::Status SetInputsAndOutputs(TfLiteContext* context) {
     for (int i = 0; i < input_indices_.size(); ++i) {
-#ifndef GL_IO_BINDING
-      RETURN_IF_ERROR(runner_->SetInputObject(
-          i, GetTensorObject(input_indices_[i], context)));
-#else
+#if (defined(GL_IO_BINDING) || defined(CL_IO_BINDING))
       const int input_binding = delegate_->options().input_binding;
-      if (input_binding & TFLITE_GPU_BINDING_ON)
-      {
-        RETURN_IF_ERROR(runner_->SetInputObject(
-            i, GetGpuInputTensorObject(i)));
-      }
-      else
-      {
+      if (input_binding & TFLITE_GPU_BINDING_ON) {
+        RETURN_IF_ERROR(runner_->SetInputObject(i, GetGpuInputTensorObject(i)));
+      } else {
         RETURN_IF_ERROR(runner_->SetInputObject(
             i, GetTensorObject(input_indices_[i], context)));
       }
+#else
+      RETURN_IF_ERROR(runner_->SetInputObject(
+          i, GetTensorObject(input_indices_[i], context)));
 #endif
     }
 
     for (int i = 0; i < output_indices_.size(); ++i) {
-#ifndef GL_IO_BINDING
-      RETURN_IF_ERROR(runner_->SetOutputObject(
-          i, GetTensorObject(output_indices_[i], context)));
-#else
+#if (defined(GL_IO_BINDING) || defined(CL_IO_BINDING))
       const int output_binding = delegate_->options().output_binding;
-      if (output_binding & TFLITE_GPU_BINDING_ON)
-      {
-        RETURN_IF_ERROR(runner_->SetOutputObject(
-            i, GetGpuOutputTensorObject(i)));
-      }
-      else
-      {
+      if (output_binding & TFLITE_GPU_BINDING_ON) {
+        RETURN_IF_ERROR(
+            runner_->SetOutputObject(i, GetGpuOutputTensorObject(i)));
+      } else {
         RETURN_IF_ERROR(runner_->SetOutputObject(
             i, GetTensorObject(output_indices_[i], context)));
       }
+#else
+      RETURN_IF_ERROR(runner_->SetOutputObject(
+          i, GetTensorObject(output_indices_[i], context)));
 #endif
     }
     return absl::OkStatus();
   }
 
-#ifdef GL_IO_BINDING
+#if defined(CL_IO_BINDING)
+  ObjectDef GetGpuObjectDef(int index) const {
+    ObjectDef default_object_def;
+    default_object_def.data_type = DataType::FLOAT32;
+    default_object_def.data_layout = DataLayout::BHWC;
+    default_object_def.object_type = ObjectType::OPENCL_BUFFER;
+    default_object_def.user_provided = true;
+    return default_object_def;
+  }
+#elif defined(GL_IO_BINDING)
   ObjectDef GetGpuObjectDef(int index) const {
     ObjectDef default_object_def;
     default_object_def.data_type = DataType::FLOAT32;
@@ -369,7 +364,15 @@ class DelegateKernel {
     return MakeCpuMemory(absl::MakeSpan(tensor.data.raw, tensor.bytes));
   }
 
-#ifdef GL_IO_BINDING
+#if defined(CL_IO_BINDING)
+  TensorObject GetGpuInputTensorObject(int index) const {
+    return OpenClBuffer(input_buffers_->at(index));
+  }
+
+  TensorObject GetGpuOutputTensorObject(int index) const {
+    return OpenClBuffer(output_buffers_->at(index));
+  }
+#elif defined(GL_IO_BINDING)
   TensorObject GetGpuInputTensorObject(int index) const {
     return OpenGlBuffer(input_buffers_->at(index));
   }
@@ -593,9 +596,9 @@ class DelegateKernel {
   std::vector<int64_t> input_indices_;
   std::vector<int64_t> output_indices_;
 
-#ifdef GL_IO_BINDING
-  SharedBuffersPtr input_buffers_;
-  SharedBuffersPtr output_buffers_;
+#if (defined(GL_IO_BINDING) || defined(CL_IO_BINDING))
+  IoBuffersPtr input_buffers_;
+  IoBuffersPtr output_buffers_;
 #endif
   // Whenever quantized inference is enabled, this maps the tensor index of each
   // originally quantized (8-bit) tensor to its float version added in
@@ -724,28 +727,28 @@ void TfLiteGpuDelegateV2Delete(TfLiteDelegate* delegate) {
   delete tflite::gpu::GetDelegate(delegate);
 }
 
-#ifdef GL_IO_BINDING
-// multiple buffers in case of multiple tensors at same index (not sure about this though)
+#if (defined(GL_IO_BINDING) || defined(CL_IO_BINDING))
+// multiple buffers in case of multiple tensors at same index (not sure about
+// this though)
 TFL_CAPI_EXPORT TfLiteStatus TfLiteGpuDelegateBindBufferToInputTensor(
-    TfLiteDelegate* delegate, tflite::gpu::SharedBuffersPtr& buffers, int tensor_index)
-{
+    TfLiteDelegate* delegate, tflite::gpu::IoBuffersPtr& buffers,
+    int tensor_index) {
   auto* gpu_delegate = tflite::gpu::GetDelegate(delegate);
-  return gpu_delegate &&
-              gpu_delegate->BindInputTensors(buffers).ok()
-              ? kTfLiteOk
-              : kTfLiteError; 
+  return gpu_delegate && gpu_delegate->BindInputTensors(buffers).ok()
+             ? kTfLiteOk
+             : kTfLiteError;
 }
 #endif
 
-#ifdef GL_IO_BINDING
-// multiple buffers in case of multiple tensors at same index (not sure about this though)
+#if (defined(GL_IO_BINDING) || defined(CL_IO_BINDING))
+// multiple buffers in case of multiple tensors at same index (not sure about
+// this though)
 TFL_CAPI_EXPORT TfLiteStatus TfLiteGpuDelegateBindBufferToOutputTensor(
-    TfLiteDelegate* delegate, tflite::gpu::SharedBuffersPtr& buffers, int tensor_index)
-{
+    TfLiteDelegate* delegate, tflite::gpu::IoBuffersPtr& buffers,
+    int tensor_index) {
   auto* gpu_delegate = tflite::gpu::GetDelegate(delegate);
-  return gpu_delegate &&
-              gpu_delegate->BindOutputTensors(buffers).ok()
-              ? kTfLiteOk
-              : kTfLiteError; 
+  return gpu_delegate && gpu_delegate->BindOutputTensors(buffers).ok()
+             ? kTfLiteOk
+             : kTfLiteError;
 }
 #endif
