@@ -61,7 +61,7 @@ namespace {
 class NoopTensorTie : public TensorTie {
  public:
   NoopTensorTie(const TensorTieDef& def, TensorObject obj)
-      : TensorTie(def), obj_(obj) {}
+      : TensorTie(def), obj_(obj) { printf("Created NoopTensorTie\n"); }
 
   static bool IsSupported(const TensorTieDef& def) {
     return def.external_def == def.internal_def;
@@ -80,9 +80,9 @@ class NoopTensorTie : public TensorTie {
 
   TensorObject GetExternalObject() final { return obj_; }
 
-  absl::Status CopyToExternalObject() final { return absl::OkStatus(); }
+  absl::Status CopyToExternalObject() final { printf("NoopTensorTie::CopyToExternalObject\n");  return absl::OkStatus(); }
 
-  absl::Status CopyFromExternalObject() final { return absl::OkStatus(); }
+  absl::Status CopyFromExternalObject() final { printf("NoopTensorTie::CopyFromExternalObject\n"); return absl::OkStatus(); }
 
  private:
   TensorObject obj_;
@@ -93,7 +93,7 @@ class NoopTensorTie : public TensorTie {
 class DefaultTensorTie : public TensorTie {
  public:
   DefaultTensorTie(const TensorTieDef& def, TensorObject internal_obj)
-      : TensorTie(def), internal_obj_(internal_obj) {}
+      : TensorTie(def), internal_obj_(internal_obj) { printf("Created DefaultTensorTie\n"); }
 
   static bool IsSupported(
       const TensorTieDef& def,
@@ -126,10 +126,12 @@ class DefaultTensorTie : public TensorTie {
     if (!converter_to_) {
       return absl::UnavailableError("Conversion is not available");
     }
+    printf("DefaultTensorTie::CopyToExternalObject: internal=%lu, external=%lu\n", internal_obj_.index(), GetExternalObject().index());
     return converter_to_->Convert(internal_obj_, GetExternalObject());
   }
 
   absl::Status CopyFromExternalObject() final {
+      printf("DefaultTensorTie::CopyFromExternalObject: internal=%lu, external=%lu\n", internal_obj_.index(), GetExternalObject().index());
     if (!converter_from_) {
       return absl::UnavailableError("Conversion is not available");
     }
@@ -228,7 +230,7 @@ class DefaultTensorTie : public TensorTie {
 //   - CPU BHWC -> CL buffer BHWC -> CL texture DHWC4.
 class TwoStepTensorTie : public TensorTie {
  public:
-  explicit TwoStepTensorTie(const TensorTieDef& def) : TensorTie(def) {}
+  explicit TwoStepTensorTie(const TensorTieDef& def) : TensorTie(def) { printf("Created TwoStepTensorTie\n"); }
 
   static bool IsSupported(
       const TensorTieDef& def,
@@ -248,11 +250,13 @@ class TwoStepTensorTie : public TensorTie {
   }
 
   absl::Status CopyToExternalObject() final {
+      printf("TwoStepTensorTie::CopyToExternalObject\n");
     RETURN_IF_ERROR(inner_tie_->CopyToExternalObject());
     return outer_tie_->CopyToExternalObject();
   }
 
   absl::Status CopyFromExternalObject() final {
+      printf("TwoStepTensorTie::CopyFromExternalObject\n");
     RETURN_IF_ERROR(outer_tie_->CopyFromExternalObject());
     return inner_tie_->CopyFromExternalObject();
   }
@@ -303,7 +307,7 @@ class GlBufferHolder : public TensorTie {
                  Environment* env)
       : TensorTie(def),
         gl_interop_fabric_(gl_interop_fabric),
-        environment_(env) {}
+        environment_(env) { printf("Created GlBufferHolder\n"); }
 
   static bool IsSupported(
       const TensorTieDef& def,
@@ -351,10 +355,12 @@ class GlBufferHolder : public TensorTie {
   TensorObject GetExternalObject() final { return external_obj_; }
 
   absl::Status CopyFromExternalObject() final {
+      printf("GlBufferHolder::CopyFromExternalObject\n");
     return tie_->CopyFromExternalObject();
   }
 
   absl::Status CopyToExternalObject() final {
+      printf("GlBufferHolder::CopyToExternalObject\n");
     return tie_->CopyToExternalObject();
   }
 
@@ -524,6 +530,7 @@ class InferenceRunnerImpl : public CLInferenceRunner {
   }
 
   absl::Status Run() override {
+      printf("Runner::Run()\n");
 #ifdef CL_DELEGATE_ALLOW_GL
     if (gl_interop_fabric_) {
       RETURN_IF_ERROR(gl_interop_fabric_->Start());
@@ -533,6 +540,7 @@ class InferenceRunnerImpl : public CLInferenceRunner {
       RETURN_IF_ERROR(input->CopyFromExternalObject());
     }
 
+    printf("Run operations\n");
     RETURN_IF_ERROR(RunWithoutExternalBufferCopy());
 
     bool has_async_copies = false;
